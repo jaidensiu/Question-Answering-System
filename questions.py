@@ -1,5 +1,10 @@
 import nltk
+# nltk.download('punkt')
+# nltk.download('stopwords')
 import sys
+import os
+import string
+import math
 
 FILE_MATCHES = 1
 SENTENCE_MATCHES = 1
@@ -48,7 +53,19 @@ def load_files(directory):
     Given a directory name, return a dictionary mapping the filename of each
     `.txt` file inside that directory to the file's contents as a string.
     """
-    raise NotImplementedError
+    
+    file_dict = dict()
+    
+    # Iterate through text files in given directory
+    for filename in os.listdir(directory):
+        if filename.endswith('.txt'):
+            file_path = os.path.join(directory, filename)
+            with open(file_path, errors='ignore') as file:
+                file_string = file.read()
+                file_dict[filename] = file_string
+
+    return file_dict     
+
 
 
 def tokenize(document):
@@ -59,7 +76,27 @@ def tokenize(document):
     Process document by coverting all words to lowercase, and removing any
     punctuation or English stopwords.
     """
-    raise NotImplementedError
+    
+    cleaned_tokens = []
+
+    # Tokenize document string using nltk
+    tokens = nltk.tokenize.word_tokenize(document.lower())
+
+    # Append tokens that are lowercase, non-stopwords, and non-punctuation
+    for token in tokens:
+        if token in nltk.corpus.stopwords.words('english'):
+            continue
+        else:
+            all_punct = True
+            for char in token:
+                if char not in string.punctuation:
+                    all_punct = False
+                    break
+
+            if not all_punct:
+                cleaned_tokens.append(token)
+
+    return cleaned_tokens  
 
 
 def compute_idfs(documents):
@@ -70,7 +107,28 @@ def compute_idfs(documents):
     Any word that appears in at least one of the documents should be in the
     resulting dictionary.
     """
-    raise NotImplementedError
+    
+    # Number of documents
+    num_docs = len(documents)
+
+    # Dictionary to count number of docs containing each word
+    docs_with_word = dict()
+
+    # Iterate through documents looking at unique words in each
+    for document in documents:
+        doc_words = set(documents[document])
+        for word in doc_words:
+            if word not in docs_with_word:
+                docs_with_word[word] = 1
+            else:
+                docs_with_word[word] += 1
+
+    # Calculate idfs for each word
+    map_word_idf = dict()
+    for word in docs_with_word:
+        map_word_idf[word] = math.log((num_docs / docs_with_word[word]))
+
+    return map_word_idf
 
 
 def top_files(query, files, idfs, n):
@@ -80,7 +138,26 @@ def top_files(query, files, idfs, n):
     to their IDF values), return a list of the filenames of the the `n` top
     files that match the query, ranked according to tf-idf.
     """
-    raise NotImplementedError
+
+    # Dictionary to hold scores for files
+    file_scores = {
+        filename:0 for filename in files
+    }
+
+    # Iterate through words in query
+    for word in query:
+        # Limit to words in the idf dictionary
+        if word in idfs:
+            # Iterate through the corpus, update each texts tf-idf
+            for filename in files:
+              tf = files[filename].count(word)
+              tf_idf = tf * idfs[word]
+              file_scores[filename] += tf_idf
+
+    sorted_files = sorted([filename for filename in files], key = lambda x : file_scores[x], reverse=True)
+
+    # Return top n files
+    return sorted_files[:n]
 
 
 def top_sentences(query, sentences, idfs, n):
@@ -91,7 +168,30 @@ def top_sentences(query, sentences, idfs, n):
     the query, ranked according to idf. If there are ties, preference should
     be given to sentences that have a higher query term density.
     """
-    raise NotImplementedError
+    
+    # Dict to score sentences
+    sentence_score = {
+        sentence:{'idf_score': 0, 'length':0, 'query_words':0, 'qtd_score':0} for sentence in sentences
+    }
+
+    # Iterate through sentences
+    for sentence in sentences:
+        s = sentence_score[sentence]
+        s['length'] = len(nltk.word_tokenize(sentence))
+        # Iterate through query words
+        for word in query:
+            # If query word is in sentence word list, update its score
+            if word in sentences[sentence]:
+                s['idf_score'] += idfs[word]
+                s['query_words'] += sentences[sentence].count(word)
+        # Calculate query term density for each sentence
+        s['qtd_score'] = s['query_words'] / s['length']
+
+    # Rank sentences by score and return n sentence
+    sorted_sentences = sorted([sentence for sentence in sentences], key= lambda x: (sentence_score[x]['idf_score'], sentence_score[x]['qtd_score']), reverse=True)
+
+    # Return n entries for sorted sentence
+    return sorted_sentences[:n]
 
 
 if __name__ == "__main__":
