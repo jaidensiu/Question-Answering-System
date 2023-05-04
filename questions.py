@@ -60,7 +60,7 @@ def load_files(directory):
     for filename in os.listdir(directory):
         if filename.endswith('.txt'):
             file_path = os.path.join(directory, filename)
-            with open(file_path, errors='ignore') as file:
+            with open(file_path, errors='ignore') as file: # 'r' was giving errors so replaced with errors='ignore'
                 file_string = file.read()
                 file_dict[filename] = file_string
 
